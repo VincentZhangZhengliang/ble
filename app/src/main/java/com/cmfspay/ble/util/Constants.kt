@@ -12,6 +12,5 @@ object Constants {
 
     const val UUID_CHAR_WRITE_STR = "11100000-0000-0000-0000-000000000000"
 
-
-
+    const val UUID_DESCRIPTOR_STR = ""
 }
