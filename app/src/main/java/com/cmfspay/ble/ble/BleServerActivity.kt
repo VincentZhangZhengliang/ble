@@ -21,17 +21,17 @@ class BleServerActivity : BaseActivity() {
 
     val TAG = javaClass.simpleName
 
-    val UUID_SERVER = UUID.fromString(Constants.UUID_SERVER_STR)
-    val UUID_CHAR_READ = UUID.fromString(Constants.UUID_CHAR_READ_STR)
-    val UUID_CHAR_WRITE = UUID.fromString(Constants.UUID_CHAR_WRITE_STR)
-    val UUID_DESCRIPTOR = UUID.fromString(Constants.UUID_DESCRIPTOR_STR)
+    private val UUID_SERVER = UUID.fromString(Constants.UUID_SERVER_STR)
+    private val UUID_CHAR_READ = UUID.fromString(Constants.UUID_CHAR_READ_STR)
+    private val UUID_CHAR_WRITE = UUID.fromString(Constants.UUID_CHAR_WRITE_STR)
+    private val UUID_DESCRIPTOR = UUID.fromString(Constants.UUID_DESCRIPTOR_STR)
 
-    var mBluetoothManager : BluetoothManager? = null
-    var mLeAdvertiser : BluetoothLeAdvertiser? = null
-    var mAdapter : BluetoothAdapter? = null
+    private var mBluetoothManager : BluetoothManager? = null
+    private var mLeAdvertiser : BluetoothLeAdvertiser? = null
+    private var mAdapter : BluetoothAdapter? = null
     var mBluetoothGattServer : BluetoothGattServer? = null
 
-    val advertiseSettings : AdvertiseSettings by lazy<AdvertiseSettings> {
+    private val advertiseSettings : AdvertiseSettings by lazy<AdvertiseSettings> {
         AdvertiseSettings.Builder()
             .setTimeout(0)         //设置广播的最长时间
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)   //设置广播的信号强度
@@ -40,17 +40,15 @@ class BleServerActivity : BaseActivity() {
             .build()
     }
 
-    val advertiseData : AdvertiseData by lazy {
+    private val advertiseData : AdvertiseData by lazy {
         AdvertiseData.Builder()
             .addManufacturerData(1, byteArrayOf(23, 33))  //添加厂商信息，
             .setIncludeDeviceName(true)   //是否广播设备名称。
             .setIncludeTxPowerLevel(true)  //是否广播信号强度
-            //            .addServiceData()    //添加服务进广播，即对外广播本设备拥有的服务。   测试是否可以添加多个
-            //            .addServiceUuid()    //添加服务进广播，即对外广播本设备拥有的服务。
             .build()
     }
 
-    val scanResponse : AdvertiseData by lazy {
+    private val scanResponse : AdvertiseData by lazy {
         AdvertiseData.Builder()
             .addManufacturerData(2, byteArrayOf(66, 66))                           //设备厂商数据，自定义
             .addServiceUuid(ParcelUuid.fromString(Constants.UUID_SERVER_STR))                   //添加服务进广播，即对外广播本设备拥有的服务。   测试是否可以添加多个
@@ -58,19 +56,21 @@ class BleServerActivity : BaseActivity() {
             .build()
     }
 
-    val gattService : BluetoothGattService by lazy {
+    private val gattService : BluetoothGattService by lazy {
         BluetoothGattService(UUID_SERVER, BluetoothGattService.SERVICE_TYPE_PRIMARY)
     }
     //读特征
-    val characteristicRead : BluetoothGattCharacteristic by lazy {
+    private val characteristicRead : BluetoothGattCharacteristic by lazy {
         BluetoothGattCharacteristic(UUID_CHAR_READ, BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ)
     }
     //写特征
-    val characteristicWrite : BluetoothGattCharacteristic by lazy {
+    private val characteristicWrite : BluetoothGattCharacteristic by lazy {
         BluetoothGattCharacteristic(UUID_CHAR_WRITE, BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_WRITE)
     }
     //读 descriptor
-    val readDescriptor : BluetoothGattDescriptor by lazy { BluetoothGattDescriptor(UUID_DESCRIPTOR, BluetoothGattCharacteristic.PERMISSION_WRITE) }
+    private val readDescriptor : BluetoothGattDescriptor by lazy {
+        BluetoothGattDescriptor(UUID_DESCRIPTOR, BluetoothGattCharacteristic.PERMISSION_WRITE)
+    }
 
     override fun getLayoutId() : Int {
         return R.layout.activity_ble_server
@@ -82,8 +82,11 @@ class BleServerActivity : BaseActivity() {
     }
 
     private fun initListener() {
-        btn_start_ble_server.setOnClickListener {
+        btn_start_ble_advertise.setOnClickListener {
             mLeAdvertiser?.startAdvertising(advertiseSettings, advertiseData, scanResponse, advertiseCallback)
+        }
+        btn_close_ble_advertise.setOnClickListener {
+            mLeAdvertiser?.stopAdvertising(advertiseCallback)
         }
     }
 
@@ -100,10 +103,32 @@ class BleServerActivity : BaseActivity() {
         mLeAdvertiser = mAdapter?.bluetoothLeAdvertiser
     }
 
-    val advertiseCallback = object : AdvertiseCallback() {
+    private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartFailure(errorCode : Int) {
             super.onStartFailure(errorCode)
             Log.e(TAG, "advertise failed")
+            when (errorCode) {
+                AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED      -> {
+                    //广播已经启动
+                    Log.e(TAG, "ADVERTISE_FAILED_ALREADY_STARTED")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE       -> {
+                    //数据太大
+                    Log.e(TAG, "ADVERTISE_FAILED_DATA_TOO_LARGE")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED  -> {
+                    //不支持
+                    Log.e(TAG, "ADVERTISE_FAILED_FEATURE_UNSUPPORTED")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR       -> {
+                    //内部错误
+                    Log.e(TAG, "ADVERTISE_FAILED_INTERNAL_ERROR")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
+                    //开启了太多广播
+                    Log.e(TAG, "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS")
+                }
+            }
         }
 
         override fun onStartSuccess(settingsInEffect : AdvertiseSettings?) {
@@ -128,7 +153,7 @@ class BleServerActivity : BaseActivity() {
         mBluetoothGattServer?.addService(gattService)
     }
 
-    val mGattServerCallback = object : BluetoothGattServerCallback() {
+    private val mGattServerCallback = object : BluetoothGattServerCallback() {
 
         /**
          * 1.连接状态发生变化时
