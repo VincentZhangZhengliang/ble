@@ -31,9 +31,11 @@ class BleServerActivity : BaseActivity() {
     private var mAdapter : BluetoothAdapter? = null
     var mBluetoothGattServer : BluetoothGattServer? = null
 
+    private var mConnectStatus = ConnectStatus.DISCONNECTED
+    private var mAdvertiseStatus = AdvertiseStatus.ADVERTISE_NONE
+
     private val advertiseSettings : AdvertiseSettings by lazy<AdvertiseSettings> {
-        AdvertiseSettings.Builder()
-            .setTimeout(0)         //设置广播的最长时间
+        AdvertiseSettings.Builder().setTimeout(0)         //设置广播的最长时间
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)   //设置广播的信号强度
             .setConnectable(true)  //设置是否可以连接。
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)  //设置广播的模式，低功耗，平衡和低延迟三种模式;
@@ -41,16 +43,14 @@ class BleServerActivity : BaseActivity() {
     }
 
     private val advertiseData : AdvertiseData by lazy {
-        AdvertiseData.Builder()
-            .addManufacturerData(1, byteArrayOf(23, 33))  //添加厂商信息，
+        AdvertiseData.Builder().addManufacturerData(1, byteArrayOf(23, 33))  //添加厂商信息，
             .setIncludeDeviceName(true)   //是否广播设备名称。
             .setIncludeTxPowerLevel(true)  //是否广播信号强度
             .build()
     }
 
     private val scanResponse : AdvertiseData by lazy {
-        AdvertiseData.Builder()
-            .addManufacturerData(2, byteArrayOf(66, 66))                           //设备厂商数据，自定义
+        AdvertiseData.Builder().addManufacturerData(2, byteArrayOf(66, 66))                           //设备厂商数据，自定义
             .addServiceUuid(ParcelUuid.fromString(Constants.UUID_SERVER_STR))                   //添加服务进广播，即对外广播本设备拥有的服务。   测试是否可以添加多个
             .addServiceData(ParcelUuid.fromString(Constants.UUID_SERVER_STR), byteArrayOf(2))   //添加服务进广播，即对外广播本设备拥有的服务。
             .build()
@@ -83,7 +83,11 @@ class BleServerActivity : BaseActivity() {
 
     private fun initListener() {
         btn_start_ble_advertise.setOnClickListener {
-            mLeAdvertiser?.startAdvertising(advertiseSettings, advertiseData, scanResponse, advertiseCallback)
+            if (AdvertiseStatus.ADVERTISE_SUCCESS != mAdvertiseStatus) {
+                mLeAdvertiser?.startAdvertising(advertiseSettings, advertiseData, scanResponse, advertiseCallback)
+            } else {
+                Toast.makeText(this, "advertise has existed", Toast.LENGTH_SHORT).show()
+            }
         }
         btn_close_ble_advertise.setOnClickListener {
             mLeAdvertiser?.stopAdvertising(advertiseCallback)
@@ -96,8 +100,7 @@ class BleServerActivity : BaseActivity() {
         }
         mAdapter = mBluetoothManager?.adapter
         if (mAdapter == null) {
-            Toast.makeText(this@BleServerActivity, "not support bluetooth", Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(this@BleServerActivity, "not support bluetooth", Toast.LENGTH_SHORT).show()
             finish()
         }
         mLeAdvertiser = mAdapter?.bluetoothLeAdvertiser
@@ -135,6 +138,7 @@ class BleServerActivity : BaseActivity() {
             super.onStartSuccess(settingsInEffect)
             Log.e(TAG, "advertise success")
             //广播开启成功后初始化gatt服务
+            mAdvertiseStatus = AdvertiseStatus.ADVERTISE_SUCCESS
             initGatt()
         }
     }
@@ -149,7 +153,6 @@ class BleServerActivity : BaseActivity() {
         if (mBluetoothManager != null) {
             mBluetoothGattServer = mBluetoothManager?.openGattServer(this, mGattServerCallback)
         }
-
         mBluetoothGattServer?.addService(gattService)
     }
 

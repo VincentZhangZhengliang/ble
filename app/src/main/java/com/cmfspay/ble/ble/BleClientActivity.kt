@@ -20,16 +20,15 @@ class BleClientActivity : BaseActivity(), BleDeviceAdapter.OnItemClickListener {
 
     private var mScanning = false
     private val mdevices = mutableListOf<BluetoothDevice>()
-    lateinit var mAdapter: BleDeviceAdapter
+    lateinit var mAdapter : BleDeviceAdapter
 
-    private val mHandler = @SuppressLint("HandlerLeak")
-    object : Handler() {
-        override fun handleMessage(msg: Message?) {
+    private val mHandler = @SuppressLint("HandlerLeak") object : Handler() {
+        override fun handleMessage(msg : Message?) {
             super.handleMessage(msg)
         }
     }
 
-    override fun getLayoutId(): Int {
+    override fun getLayoutId() : Int {
         return R.layout.activity_ble_client
     }
 
@@ -47,7 +46,10 @@ class BleClientActivity : BaseActivity(), BleDeviceAdapter.OnItemClickListener {
         mAdapter.setOnItemClickListener(this)
     }
 
-    override fun onItemClick(device: BluetoothDevice?, position: Int) {
+    override fun onItemClick(device : BluetoothDevice?, position : Int) {
+        if (mScanning) {
+            startScan(false)
+        }
         val intent = Intent(this@BleClientActivity, BleDeviceActivity::class.java)
         intent.putExtra(Constants.EXTRA_DEVICE, device)
         startActivity(intent)
@@ -59,9 +61,10 @@ class BleClientActivity : BaseActivity(), BleDeviceAdapter.OnItemClickListener {
         activity_ble_client_rv.adapter = mAdapter
     }
 
-    fun startScan(scan: Boolean) {
+    fun startScan(scan : Boolean) {
         when (scan) {
-            true -> {
+            true  -> {
+                if (mScanning) mBluetoothAdapter?.stopLeScan(mLeScanCallback)
                 mHandler.postDelayed({
                     mScanning = false
                     mBluetoothAdapter?.stopLeScan(mLeScanCallback)
@@ -82,19 +85,19 @@ class BleClientActivity : BaseActivity(), BleDeviceAdapter.OnItemClickListener {
 
     private val mLeScanCallback = BluetoothAdapter.LeScanCallback { device, _, _ ->
         runOnUiThread {
-            if (!mdevices.contains(device)) {
+            if (! mdevices.contains(device)) {
                 mdevices.add(device)
                 mAdapter.notifyDataSetChanged()
             }
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+    override fun onCreateOptionsMenu(menu : Menu?) : Boolean {
         menuInflater.inflate(R.menu.menu_ble_client, menu)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+    override fun onOptionsItemSelected(item : MenuItem?) : Boolean {
         when (item?.itemId) {
             R.id.menu_scan -> {
                 if (mScanning) {
