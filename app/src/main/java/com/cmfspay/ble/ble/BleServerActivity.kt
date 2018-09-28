@@ -21,41 +21,58 @@ class BleServerActivity : BaseActivity() {
 
     val TAG = javaClass.simpleName
 
-    val UUID_SERVER = UUID.fromString(Constants.UUID_SERVER_STR)
-    val UUID_CHAR_READ = UUID.fromString(Constants.UUID_CHAR_READ_STR)
-    val UUID_CHAR_WRITE = UUID.fromString(Constants.UUID_CHAR_WRITE_STR)
+    private val UUID_SERVER = UUID.fromString(Constants.UUID_SERVER_STR)
+    private val UUID_CHAR_READ = UUID.fromString(Constants.UUID_CHAR_READ_STR)
+    private val UUID_CHAR_WRITE = UUID.fromString(Constants.UUID_CHAR_WRITE_STR)
+    private val UUID_DESCRIPTOR = UUID.fromString(Constants.UUID_DESCRIPTOR_STR)
 
-    var mBluetoothManager: BluetoothManager? = null
-    var mLeAdvertiser: BluetoothLeAdvertiser? = null
-    var mAdapter: BluetoothAdapter? = null
-    var mBluetoothGattServer: BluetoothGattServer? = null
+    private var mBluetoothManager : BluetoothManager? = null
+    private var mLeAdvertiser : BluetoothLeAdvertiser? = null
+    private var mAdapter : BluetoothAdapter? = null
+    var mBluetoothGattServer : BluetoothGattServer? = null
 
-    val advertiseSettings: AdvertiseSettings by lazy<AdvertiseSettings> {
-        AdvertiseSettings.Builder()
-                .setTimeout(0)
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-                .setConnectable(true)
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-                .build()
+    private var mConnectStatus = ConnectStatus.DISCONNECTED
+    private var mAdvertiseStatus = AdvertiseStatus.ADVERTISE_NONE
+
+    private val advertiseSettings : AdvertiseSettings by lazy<AdvertiseSettings> {
+        AdvertiseSettings.Builder().setTimeout(0)         //设置广播的最长时间
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)   //设置广播的信号强度
+            .setConnectable(true)  //设置是否可以连接。
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)  //设置广播的模式，低功耗，平衡和低延迟三种模式;
+            .build()
     }
 
-    val advertiseData: AdvertiseData by lazy {
-        AdvertiseData.Builder()
-                .addManufacturerData(1, byteArrayOf(23, 33))
-                .setIncludeDeviceName(true)
-                .setIncludeTxPowerLevel(true)
-                .build()
+    private val advertiseData : AdvertiseData by lazy {
+        AdvertiseData.Builder().addManufacturerData(1, byteArrayOf(23, 33))  //添加厂商信息，
+            .setIncludeDeviceName(true)   //是否广播设备名称。
+            .setIncludeTxPowerLevel(true)  //是否广播信号强度
+            .build()
     }
 
-    val scanResponse: AdvertiseData by lazy {
-        AdvertiseData.Builder()
-                .addManufacturerData(2, byteArrayOf(66, 66)) //设备厂商数据，自定义
-                .addServiceUuid(ParcelUuid.fromString(Constants.UUID_SERVER_STR)) //服务UUID
-                .addServiceData(ParcelUuid.fromString(Constants.UUID_SERVER_STR), byteArrayOf(2)) //服务数据，自定义
-                .build()
+    private val scanResponse : AdvertiseData by lazy {
+        AdvertiseData.Builder().addManufacturerData(2, byteArrayOf(66, 66))                           //设备厂商数据，自定义
+            .addServiceUuid(ParcelUuid.fromString(Constants.UUID_SERVER_STR))                   //添加服务进广播，即对外广播本设备拥有的服务。   测试是否可以添加多个
+            .addServiceData(ParcelUuid.fromString(Constants.UUID_SERVER_STR), byteArrayOf(2))   //添加服务进广播，即对外广播本设备拥有的服务。
+            .build()
     }
 
-    override fun getLayoutId(): Int {
+    private val gattService : BluetoothGattService by lazy {
+        BluetoothGattService(UUID_SERVER, BluetoothGattService.SERVICE_TYPE_PRIMARY)
+    }
+    //读特征
+    private val characteristicRead : BluetoothGattCharacteristic by lazy {
+        BluetoothGattCharacteristic(UUID_CHAR_READ, BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ)
+    }
+    //写特征
+    private val characteristicWrite : BluetoothGattCharacteristic by lazy {
+        BluetoothGattCharacteristic(UUID_CHAR_WRITE, BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_WRITE)
+    }
+    //读 descriptor
+    private val readDescriptor : BluetoothGattDescriptor by lazy {
+        BluetoothGattDescriptor(UUID_DESCRIPTOR, BluetoothGattCharacteristic.PERMISSION_WRITE)
+    }
+
+    override fun getLayoutId() : Int {
         return R.layout.activity_ble_server
     }
 
@@ -65,118 +82,89 @@ class BleServerActivity : BaseActivity() {
     }
 
     private fun initListener() {
-
-        btn_start_ble_server.setOnClickListener {
-            mLeAdvertiser?.startAdvertising(advertiseSettings, advertiseData, scanResponse, advertiseCallback)
+        btn_start_ble_advertise.setOnClickListener {
+            if (AdvertiseStatus.ADVERTISE_SUCCESS != mAdvertiseStatus) {
+                mLeAdvertiser?.startAdvertising(advertiseSettings, advertiseData, scanResponse, advertiseCallback)
+            } else {
+                Toast.makeText(this, "advertise has existed", Toast.LENGTH_SHORT).show()
+            }
         }
-
+        btn_close_ble_advertise.setOnClickListener {
+            mLeAdvertiser?.stopAdvertising(advertiseCallback)
+        }
     }
 
     private fun initBle() {
         if (mBluetoothManager == null) {
             mBluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         }
-
         mAdapter = mBluetoothManager?.adapter
-
         if (mAdapter == null) {
             Toast.makeText(this@BleServerActivity, "not support bluetooth", Toast.LENGTH_SHORT).show()
             finish()
         }
-
         mLeAdvertiser = mAdapter?.bluetoothLeAdvertiser
+    }
 
-        val service = BluetoothGattService(UUID.fromString(Constants.UUID_SERVER_STR),
-                BluetoothGattService.SERVICE_TYPE_PRIMARY)
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartFailure(errorCode : Int) {
+            super.onStartFailure(errorCode)
+            Log.e(TAG, "advertise failed")
+            when (errorCode) {
+                AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED      -> {
+                    //广播已经启动
+                    Log.e(TAG, "ADVERTISE_FAILED_ALREADY_STARTED")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE       -> {
+                    //数据太大
+                    Log.e(TAG, "ADVERTISE_FAILED_DATA_TOO_LARGE")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED  -> {
+                    //不支持
+                    Log.e(TAG, "ADVERTISE_FAILED_FEATURE_UNSUPPORTED")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR       -> {
+                    //内部错误
+                    Log.e(TAG, "ADVERTISE_FAILED_INTERNAL_ERROR")
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
+                    //开启了太多广播
+                    Log.e(TAG, "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS")
+                }
+            }
+        }
 
-        //读
-        val characteristicRead = BluetoothGattCharacteristic(UUID_CHAR_READ,
-                BluetoothGattCharacteristic.PROPERTY_READ,
-                BluetoothGattCharacteristic.PERMISSION_READ)
-        characteristicRead.addDescriptor(BluetoothGattDescriptor(UUID_CHAR_READ,
-                BluetoothGattCharacteristic.PERMISSION_WRITE))
-        service.addCharacteristic(characteristicRead)
+        override fun onStartSuccess(settingsInEffect : AdvertiseSettings?) {
+            super.onStartSuccess(settingsInEffect)
+            Log.e(TAG, "advertise success")
+            //广播开启成功后初始化gatt服务
+            mAdvertiseStatus = AdvertiseStatus.ADVERTISE_SUCCESS
+            initGatt()
+        }
+    }
 
-        //写
-        val characteristicWrite = BluetoothGattCharacteristic(UUID_CHAR_WRITE,
-                BluetoothGattCharacteristic.PROPERTY_WRITE,
-                BluetoothGattCharacteristic.PERMISSION_WRITE)
-        service.addCharacteristic(characteristicWrite)
+    private fun initGatt() {
+        //添加读
+        characteristicRead.addDescriptor(readDescriptor)
+        gattService.addCharacteristic(characteristicRead)
+        //添加写
+        gattService.addCharacteristic(characteristicWrite)
 
         if (mBluetoothManager != null) {
             mBluetoothGattServer = mBluetoothManager?.openGattServer(this, mGattServerCallback)
         }
-        mBluetoothGattServer?.addService(service)
-
+        mBluetoothGattServer?.addService(gattService)
     }
 
-    val advertiseCallback = object : AdvertiseCallback() {
-        override fun onStartFailure(errorCode: Int) {
-            super.onStartFailure(errorCode)
-            Log.e(TAG, "advertise failed")
-        }
+    private val mGattServerCallback = object : BluetoothGattServerCallback() {
 
-        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-            super.onStartSuccess(settingsInEffect)
-            Log.e(TAG, "advertise success")
-        }
-    }
-
-    val mGattServerCallback = object : BluetoothGattServerCallback() {
-
-        override fun onDescriptorReadRequest(device: BluetoothDevice?, requestId: Int, offset: Int, descriptor: BluetoothGattDescriptor?) {
-            super.onDescriptorReadRequest(device, requestId, offset, descriptor)
-
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
-            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
-            Log.e(TAG, "onCharacteristicReadRequest cdescriptorUUID = ${descriptor?.uuid}")
-            val response = "DESC_" + (Math.random() * 100).toInt() //模拟数据
-            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
-                    response.toByteArray(Charset.forName("utf-8"))) // 响应客户端
-        }
-
-        override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
-            super.onNotificationSent(device, status)
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} status = $status")
-        }
-
-        override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
-            super.onMtuChanged(device, mtu)
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} mtu = $mtu")
-        }
-
-        override fun onPhyUpdate(device: BluetoothDevice?, txPhy: Int, rxPhy: Int, status: Int) {
-            super.onPhyUpdate(device, txPhy, rxPhy, status)
-        }
-
-        override fun onExecuteWrite(device: BluetoothDevice?, requestId: Int, execute: Boolean) {
-            super.onExecuteWrite(device, requestId, execute)
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
-            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId execute = $execute ")
-        }
-
-        override fun onCharacteristicWriteRequest(device: BluetoothDevice?, requestId: Int, characteristic: BluetoothGattCharacteristic?, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
-            super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value)
-
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
-            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
-            Log.e(TAG, "onCharacteristicReadRequest characteristicUUID = ${characteristic?.uuid}")
-            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
-
-        }
-
-        override fun onCharacteristicReadRequest(device: BluetoothDevice?, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic?) {
-            super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
-
-            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
-            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
-            Log.e(TAG, "onCharacteristicReadRequest characteristicUUID = ${characteristic?.uuid}")
-            val response = "CHAR_" + (Math.random() * 100).toInt() //模拟数据
-            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, response.toByteArray(Charset.forName("utf-8")))
-
-        }
-
-        override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
+        /**
+         * 1.连接状态发生变化时
+         * @param device
+         * @param status
+         * @param newState
+         */
+        override fun onConnectionStateChange(device : BluetoothDevice?, status : Int, newState : Int) {
             super.onConnectionStateChange(device, status, newState)
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(TAG, "BluetoothDevice CONNECTED: ${device?.name} ${device?.address} $status $newState")
@@ -186,17 +174,38 @@ class BleServerActivity : BaseActivity() {
             }
         }
 
-        override fun onPhyRead(device: BluetoothDevice?, txPhy: Int, rxPhy: Int, status: Int) {
-            super.onPhyRead(device, txPhy, rxPhy, status)
+        /**
+         * 2.是否有远程设备连接进来
+         */
+        override fun onServiceAdded(status : Int, service : BluetoothGattService?) {
+            super.onServiceAdded(status, service)
+            Log.e(TAG, "onServiceAdded $status ${service?.uuid}")
         }
 
-        override fun onDescriptorWriteRequest(device: BluetoothDevice?, requestId: Int, descriptor: BluetoothGattDescriptor?, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
+        /**
+         * 3.远程设备请求读取本地的descriptor 需要调用sendResponse来结束这个请求
+         */
+        override fun onDescriptorReadRequest(device : BluetoothDevice?, requestId : Int, offset : Int, descriptor : BluetoothGattDescriptor?) {
+            super.onDescriptorReadRequest(device, requestId, offset, descriptor)
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
+            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
+            Log.e(TAG, "onCharacteristicReadRequest cdescriptorUUID = ${descriptor?.uuid}")
+            val response = "DESC_" + (Math.random() * 100).toInt() //模拟数据
+            //返回给远程设备 请求成功BluetoothGatt.GATT_SUCCESS
+            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, response.toByteArray(Charset.forName("utf-8"))) // 响应客户端
+        }
+
+        /**
+         * 3.远程设备请求向本地的descriptor写入数据 需要调用sendResponse来结束这个请求
+         */
+        override fun onDescriptorWriteRequest(device : BluetoothDevice?, requestId : Int, descriptor : BluetoothGattDescriptor?, preparedWrite : Boolean, responseNeeded : Boolean, offset : Int, value : ByteArray?) {
             super.onDescriptorWriteRequest(device, requestId, descriptor, preparedWrite, responseNeeded, offset, value)
             Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
             Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
             Log.e(TAG, "onCharacteristicReadRequest cdescriptorUUID = ${descriptor?.uuid}")
             Log.e(TAG, "onCharacteristicReadRequest value = ${value.toString()}")
-            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);// 响应客户端
+            // 响应客户端 请求成功 BluetoothGatt.GATT_SUCCESS
+            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
             if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.toString() == value.toString()) { //是否开启通知
                 val characteristic = descriptor?.getCharacteristic()
                 Thread(Runnable {
@@ -211,9 +220,73 @@ class BleServerActivity : BaseActivity() {
 
         }
 
-        override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
-            super.onServiceAdded(status, service)
-            Log.e(TAG, "onServiceAdded $status ${service?.uuid}")
+        /**
+         * 4.远程设备请求读取本地的characteristic 需要调用sendResponse来结束这个请求
+         */
+        override fun onCharacteristicReadRequest(device : BluetoothDevice?, requestId : Int, offset : Int, characteristic : BluetoothGattCharacteristic?) {
+            super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
+
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
+            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
+            Log.e(TAG, "onCharacteristicReadRequest characteristicUUID = ${characteristic?.uuid}")
+            val response = "CHAR_" + (Math.random() * 100).toInt() //模拟数据
+            //响应客户端，请求成功 BluetoothGatt.GATT_SUCCESS  并返回数据response
+            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, response.toByteArray(Charset.forName("utf-8")))
         }
+
+        /**
+         * 5.远程设备请求向本地的characteristic写入数据 需要调用sendResponse来结束这个请求
+         */
+        override fun onCharacteristicWriteRequest(device : BluetoothDevice?, requestId : Int, characteristic : BluetoothGattCharacteristic?, preparedWrite : Boolean, responseNeeded : Boolean, offset : Int, value : ByteArray?) {
+            super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value)
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
+            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId offset = $offset ")
+            Log.e(TAG, "onCharacteristicReadRequest characteristicUUID = ${characteristic?.uuid}")
+            //处理远程设备写入的数据
+            dealWriteRequest(device, requestId, characteristic, value)
+            ////响应客户端，请求成功 BluetoothGatt.GATT_SUCCESS  并返回数据response
+            mBluetoothGattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+        }
+
+        /**
+         * 6.本地向远程设备发送notification/indication的回调，如果有多个notification/indication要发送，需要等上一个notification/indication发送完成
+         */
+        override fun onNotificationSent(device : BluetoothDevice?, status : Int) {
+            super.onNotificationSent(device, status)
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} status = $status")
+        }
+
+        /**
+         *
+         */
+        override fun onMtuChanged(device : BluetoothDevice?, mtu : Int) {
+            super.onMtuChanged(device, mtu)
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} mtu = $mtu")
+        }
+
+        override fun onPhyUpdate(device : BluetoothDevice?, txPhy : Int, rxPhy : Int, status : Int) {
+            super.onPhyUpdate(device, txPhy, rxPhy, status)
+        }
+
+        override fun onExecuteWrite(device : BluetoothDevice?, requestId : Int, execute : Boolean) {
+            super.onExecuteWrite(device, requestId, execute)
+            Log.e(TAG, "onCharacteristicReadRequest ${device?.name} ${device?.address} ")
+            Log.e(TAG, "onCharacteristicReadRequest requestId = $requestId execute = $execute ")
+        }
+
+        override fun onPhyRead(device : BluetoothDevice?, txPhy : Int, rxPhy : Int, status : Int) {
+            super.onPhyRead(device, txPhy, rxPhy, status)
+        }
+
+    }
+
+    /**
+     * 处理远程设备写入的数据
+     * @param device  远程连接设备
+     * @param requestId  请求id
+     * @param value   远程设备写入的值
+     */
+    private fun dealWriteRequest(device : BluetoothDevice?, requestId : Int, characteristic : BluetoothGattCharacteristic?, value : ByteArray?) {
+        mBluetoothGattServer?.notifyCharacteristicChanged(device, characteristic, false)
     }
 }
