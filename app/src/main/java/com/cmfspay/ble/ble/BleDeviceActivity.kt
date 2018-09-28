@@ -32,7 +32,7 @@ class BleDeviceActivity : BaseActivity() {
     private fun initListener() {
 
         activity_ble_device_elv.setOnChildClickListener { expandableListView, view, i, i1, l ->
-
+            val properties = mServices[i].characteristics[i1].properties
             true
         }
 

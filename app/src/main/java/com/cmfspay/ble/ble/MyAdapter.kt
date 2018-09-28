@@ -86,7 +86,32 @@ class MyAdapter(var context : Context, var services : List<BluetoothGattService>
             view = p3
             holder = view.tag as ChildViewHolder
         }
+        //properties 可能同时含有可读（2）可写（8）可通知（16）
+        Log.e("Joker", services?.get(p0)?.characteristics?.get(p1)?.properties?.toInt().toString())
         holder.tv_characritics?.text = services?.get(p0)?.characteristics?.get(p1)?.uuid.toString()
+        when (services?.get(p0)?.characteristics?.get(p1)?.properties) {
+            BluetoothGattCharacteristic.PROPERTY_READ   -> {
+                holder.tv_characristics_uuid?.text = "可读"
+            }
+            BluetoothGattCharacteristic.PROPERTY_WRITE  -> {
+                holder.tv_characristics_uuid?.text = "可写"
+            }
+            BluetoothGattCharacteristic.PROPERTY_NOTIFY -> {
+                holder.tv_characristics_uuid?.text = "可通知"
+            }
+            10                                          -> {
+                holder.tv_characristics_uuid?.text = "可读可写"
+            }
+            18                                          -> {
+                holder.tv_characristics_uuid?.text = "可读可通知"
+            }
+            24                                          -> {
+                holder.tv_characristics_uuid?.text = "可写可通知"
+            }
+            26                                          -> {
+                holder.tv_characristics_uuid?.text = "可读可写可通知"
+            }
+        }
         holder.tv_characristics_uuid?.text = services?.get(p0)?.characteristics?.get(p1)?.uuid.toString()
         return view
     }
