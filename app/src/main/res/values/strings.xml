@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Ble</string>
     <string name="scan">scan</string>
+    <string name="properties_read">可读</string>
+    <string name="properties_write">可写</string>
+    <string name="properties_notify">可通知</string>
 </resources>

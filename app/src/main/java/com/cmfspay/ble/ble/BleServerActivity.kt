@@ -136,14 +136,16 @@ class BleServerActivity : BaseActivity() {
 
         override fun onStartSuccess(settingsInEffect : AdvertiseSettings?) {
             super.onStartSuccess(settingsInEffect)
+            mAdvertiseStatus = AdvertiseStatus.ADVERTISE_SUCCESS
             Log.e(TAG, "advertise success")
             //广播开启成功后初始化gatt服务
-            mAdvertiseStatus = AdvertiseStatus.ADVERTISE_SUCCESS
             initGatt()
         }
     }
 
     private fun initGatt() {
+        //清空服务
+        mBluetoothGattServer?.clearServices()
         //添加读
         characteristicRead.addDescriptor(readDescriptor)
         gattService.addCharacteristic(characteristicRead)
@@ -154,6 +156,7 @@ class BleServerActivity : BaseActivity() {
             mBluetoothGattServer = mBluetoothManager?.openGattServer(this, mGattServerCallback)
         }
         mBluetoothGattServer?.addService(gattService)
+
     }
 
     private val mGattServerCallback = object : BluetoothGattServerCallback() {
@@ -171,6 +174,7 @@ class BleServerActivity : BaseActivity() {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(TAG, "BluetoothDevice DISCONNECTED: ${device?.name} ${device?.address} $status $newState")
                 //Remove device from any active subscriptions
+                mBluetoothGattServer?.cancelConnection(device)
             }
         }
 

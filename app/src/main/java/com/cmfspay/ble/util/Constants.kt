@@ -13,4 +13,6 @@ object Constants {
     const val UUID_CHAR_WRITE_STR = "0000fff6-0000-1000-8000-00805f9b34fb"
 
     const val UUID_DESCRIPTOR_STR = "00002902-0000-1000-8000-00805f9b34fb"
+
+    const val EXTRA_PROPERTIES = "extra_properties"
 }
