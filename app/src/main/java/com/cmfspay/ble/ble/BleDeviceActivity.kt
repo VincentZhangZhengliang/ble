@@ -5,11 +5,12 @@ import android.util.Log
 import android.widget.ListAdapter
 import com.cmfspay.ble.BaseActivity
 import com.cmfspay.ble.R
+import com.cmfspay.ble.dialog.PropertiesDialog
 import com.cmfspay.ble.util.Constants
 import kotlinx.android.synthetic.main.activity_ble_device.*
 
 //展示device的services uuid等信息
-class BleDeviceActivity : BaseActivity() {
+class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListener {
 
     lateinit var mDevice : BluetoothDevice
     lateinit var mAdapter : MyAdapter
@@ -30,11 +31,16 @@ class BleDeviceActivity : BaseActivity() {
     }
 
     private fun initListener() {
-
         activity_ble_device_elv.setOnChildClickListener { expandableListView, view, i, i1, l ->
             val properties = mServices[i].characteristics[i1].properties
+            PropertiesDialog.getInstance(properties).show(supportFragmentManager, "")
             true
         }
+    }
+
+    override fun onPropertiesClick(properties : Int) {
+
+
 
     }
 

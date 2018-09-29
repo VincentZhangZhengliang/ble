@@ -1,16 +1,17 @@
 package com.cmfspay.ble.dialog
 
-import android.app.DialogFragment
+import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.support.v4.app.DialogFragment
 import android.support.v7.app.AppCompatActivity
 import android.util.DisplayMetrics
 import android.view.*
 import com.cmfspay.ble.R
 import com.cmfspay.ble.util.Constants
-import kotlinx.android.synthetic.main.dialog_properties.*
+import kotlinx.android.synthetic.main.dialog_properties.view.*
 
 class PropertiesDialog : DialogFragment() {
 
@@ -30,7 +31,7 @@ class PropertiesDialog : DialogFragment() {
     override fun onAttach(context : Context?) {
         super.onAttach(context)
         mActivity = context as AppCompatActivity
-        mProperties = arguments.getInt(Constants.EXTRA_PROPERTIES)
+        mProperties = arguments?.getInt(Constants.EXTRA_PROPERTIES)
     }
 
     override fun onCreate(savedInstanceState : Bundle?) {
@@ -38,56 +39,68 @@ class PropertiesDialog : DialogFragment() {
         setStyle(DialogFragment.STYLE_NO_TITLE, R.style.BottomDialog)
     }
 
-    override fun onCreateView(inflater : LayoutInflater?, container : ViewGroup?, savedInstanceState : Bundle?) : View {
+    override fun onCreateView(inflater : LayoutInflater, container : ViewGroup?, savedInstanceState : Bundle?) : View? {
         val view = inflater?.inflate(R.layout.dialog_properties, container, false) !!
         initview(view)
-        initListener()
+        initListener(view)
         return view
     }
 
-    private fun initListener() {
-        tv_property_read.setOnClickListener { }
-        tv_property_write.setOnClickListener { }
-        tv_property_notify.setOnClickListener { }
+    private fun initListener(view : View) {
+        view.tv_property_read.setOnClickListener {
+            val listener = activity as OnPropertiesClickListener
+            listener.onPropertiesClick(BluetoothGattCharacteristic.PROPERTY_READ)
+            dismiss()
+        }
+        view.tv_property_write.setOnClickListener {
+            val listener = activity as OnPropertiesClickListener
+            listener.onPropertiesClick(BluetoothGattCharacteristic.PROPERTY_WRITE)
+            dismiss()
+        }
+        view.tv_property_notify.setOnClickListener {
+            val listener = activity as OnPropertiesClickListener
+            listener.onPropertiesClick(BluetoothGattCharacteristic.PROPERTY_NOTIFY)
+            dismiss()
+        }
     }
 
     private fun initview(view : View) {
         when (mProperties) {
             //可读（2）可写（8）可通知（16）
             2  -> {
-                tv_property_read.visibility = View.VISIBLE
-                tv_property_write.visibility = View.GONE
-                tv_property_notify.visibility = View.GONE
+                view.tv_property_read.visibility = View.VISIBLE
+                view.tv_property_write.visibility = View.GONE
+                view.tv_property_notify.visibility = View.GONE
             }
             8  -> {
-                tv_property_read.visibility = View.GONE
-                tv_property_write.visibility = View.VISIBLE
-                tv_property_notify.visibility = View.GONE
+                view.tv_property_read.visibility = View.GONE
+                view.tv_property_write.visibility = View.VISIBLE
+                view.tv_property_notify.visibility = View.GONE
             }
             10 -> {
-                tv_property_read.visibility = View.VISIBLE
-                tv_property_write.visibility = View.VISIBLE
-                tv_property_notify.visibility = View.GONE
+                view.tv_property_read.visibility = View.VISIBLE
+                view.tv_property_write.visibility = View.VISIBLE
+                view.tv_property_notify.visibility = View.GONE
             }
             16 -> {
-                tv_property_read.visibility = View.GONE
-                tv_property_write.visibility = View.GONE
-                tv_property_notify.visibility = View.VISIBLE
+                view.tv_property_read.visibility = View.GONE
+                view.tv_property_write.visibility = View.GONE
+                view.tv_property_notify.visibility = View.VISIBLE
             }
             18 -> {
-                tv_property_read.visibility = View.VISIBLE
-                tv_property_write.visibility = View.GONE
-                tv_property_notify.visibility = View.VISIBLE
+                view.tv_property_read.visibility = View.VISIBLE
+                view.tv_property_write.visibility = View.GONE
+                view.tv_property_notify.visibility = View.VISIBLE
             }
             24 -> {
-                tv_property_read.visibility = View.GONE
-                tv_property_write.visibility = View.VISIBLE
-                tv_property_notify.visibility = View.VISIBLE
+                view.tv_property_read.visibility = View.GONE
+                view.tv_property_write.visibility = View.VISIBLE
+                view.tv_property_notify.visibility = View.VISIBLE
             }
             26 -> {
-                tv_property_read.visibility = View.VISIBLE
-                tv_property_write.visibility = View.VISIBLE
-                tv_property_notify.visibility = View.VISIBLE
+                view.tv_property_read.visibility = View.VISIBLE
+                view.tv_property_write.visibility = View.VISIBLE
+                view.tv_property_notify.visibility = View.VISIBLE
             }
         }
     }
@@ -95,7 +108,7 @@ class PropertiesDialog : DialogFragment() {
     override fun onStart() {
         super.onStart()
         val dm = DisplayMetrics()
-        activity.windowManager.defaultDisplay.getMetrics(dm)
+        activity?.windowManager?.defaultDisplay?.getMetrics(dm)
         val window = dialog.window
         window !!.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         isCancelable = false
@@ -110,6 +123,10 @@ class PropertiesDialog : DialogFragment() {
 
     override fun onDestroy() {
         super.onDestroy()
+    }
+
+    interface OnPropertiesClickListener {
+        fun onPropertiesClick(properties : Int)
     }
 
 }

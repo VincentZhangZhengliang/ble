@@ -27,7 +27,8 @@
         <activity android:name=".classic.ClassicClientActivity" />
         <activity android:name=".classic.ClassicServerActivity" />
         <activity android:name=".BaseActivity" />
-        <activity android:name=".ble.BleDeviceActivity"></activity>
+        <activity android:name=".ble.BleDeviceActivity" />
+        <activity android:name=".ble.PropertiesReadActivity"></activity>
     </application>
 
 </manifest>
