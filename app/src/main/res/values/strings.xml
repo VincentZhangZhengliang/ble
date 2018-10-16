@@ -4,4 +4,7 @@
     <string name="properties_read">可读</string>
     <string name="properties_write">可写</string>
     <string name="properties_notify">可通知</string>
+    <string name="open_read_operation">打开读操作</string>
+    <string name="close_read_operation">关闭读操作</string>
+    <string name="read">读</string>
 </resources>

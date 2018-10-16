@@ -25,6 +25,7 @@ class BleServerActivity : BaseActivity() {
     private val UUID_CHAR_READ = UUID.fromString(Constants.UUID_CHAR_READ_STR)
     private val UUID_CHAR_WRITE = UUID.fromString(Constants.UUID_CHAR_WRITE_STR)
     private val UUID_DESCRIPTOR = UUID.fromString(Constants.UUID_DESCRIPTOR_STR)
+    
 
     private var mBluetoothManager : BluetoothManager? = null
     private var mLeAdvertiser : BluetoothLeAdvertiser? = null

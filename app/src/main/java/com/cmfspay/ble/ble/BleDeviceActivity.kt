@@ -1,6 +1,7 @@
 package com.cmfspay.ble.ble
 
 import android.bluetooth.*
+import android.content.Intent
 import android.util.Log
 import android.widget.ListAdapter
 import com.cmfspay.ble.BaseActivity
@@ -10,13 +11,13 @@ import com.cmfspay.ble.util.Constants
 import kotlinx.android.synthetic.main.activity_ble_device.*
 
 //展示device的services uuid等信息
-class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListener {
+class BleDeviceActivity : BaseActivity(), PropertiesDialog.OnPropertiesClickListener {
 
-    lateinit var mDevice : BluetoothDevice
-    lateinit var mAdapter : MyAdapter
+    lateinit var mDevice: BluetoothDevice
+    lateinit var mAdapter: MyAdapter
     var mServices = arrayListOf<BluetoothGattService>()
 
-    override fun getLayoutId() : Int {
+    override fun getLayoutId(): Int {
         return R.layout.activity_ble_device
     }
 
@@ -38,41 +39,51 @@ class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListe
         }
     }
 
-    override fun onPropertiesClick(properties : Int) {
+    override fun onPropertiesClick(properties: Int) {
 
-
+        when (properties) {
+            BluetoothGattCharacteristic.PROPERTY_READ -> {
+                startActivity(Intent(this, PropertiesReadActivity::class.java))
+            }
+            BluetoothGattCharacteristic.PROPERTY_WRITE -> {
+                startActivity(Intent(this, PropertiesWriteActivity::class.java))
+            }
+            BluetoothGattCharacteristic.PROPERTY_NOTIFY -> {
+                startActivity(Intent(this, PropertiesNotifyActivity::class.java))
+            }
+        }
 
     }
 
     val mGattCallBack = object : BluetoothGattCallback() {
 
-        override fun onCharacteristicRead(gatt : BluetoothGatt?, characteristic : BluetoothGattCharacteristic?, status : Int) {
+        override fun onCharacteristicRead(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
             super.onCharacteristicRead(gatt, characteristic, status)
         }
 
-        override fun onCharacteristicWrite(gatt : BluetoothGatt?, characteristic : BluetoothGattCharacteristic?, status : Int) {
+        override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
             super.onCharacteristicWrite(gatt, characteristic, status)
         }
 
 
-        override fun onMtuChanged(gatt : BluetoothGatt?, mtu : Int, status : Int) {
+        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
             super.onMtuChanged(gatt, mtu, status)
         }
 
-        override fun onCharacteristicChanged(gatt : BluetoothGatt?, characteristic : BluetoothGattCharacteristic?) {
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
             super.onCharacteristicChanged(gatt, characteristic)
         }
 
         /**
          * 连接状态改变的回调
          */
-        override fun onConnectionStateChange(gatt : BluetoothGatt?, status : Int, newState : Int) {
+        override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
             super.onConnectionStateChange(gatt, status, newState)
             when (newState) {
-                BluetoothProfile.STATE_CONNECTING    -> {
+                BluetoothProfile.STATE_CONNECTING -> {
                     Log.e("TAG", "STATE_CONNECTING")
                 }
-                BluetoothProfile.STATE_CONNECTED     -> {
+                BluetoothProfile.STATE_CONNECTED -> {
                     Log.e("TAG", "STATE_CONNECTED")
                     //连接成功，寻找外设的服务
                     gatt?.discoverServices()
@@ -80,7 +91,7 @@ class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListe
                 BluetoothProfile.STATE_DISCONNECTING -> {
                     Log.e("TAG", "STATE_DISCONNECTING")
                 }
-                BluetoothProfile.STATE_DISCONNECTED  -> {
+                BluetoothProfile.STATE_DISCONNECTED -> {
                     Log.e("TAG", "STATE_DISCONNECTED")
                     //连接断开
                 }
@@ -90,7 +101,7 @@ class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListe
         /**
          * 连接成功后寻找服务的回调
          */
-        override fun onServicesDiscovered(gatt : BluetoothGatt?, status : Int) {
+        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             super.onServicesDiscovered(gatt, status)
             when (status) {
                 BluetoothGatt.GATT_SUCCESS -> {
@@ -124,6 +135,5 @@ class BleDeviceActivity : BaseActivity(),PropertiesDialog.OnPropertiesClickListe
         }
 
     }
-
 
 }
